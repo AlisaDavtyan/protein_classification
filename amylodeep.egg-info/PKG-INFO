@@ -1,0 +1,195 @@
+Metadata-Version: 2.4
+Name: amylodeep
+Version: 0.1.0
+Summary: Prediction of amyloid propensity from amino acid sequences using ensemble deep learning and LLM models
+Author-email: Alisa Davtyan <alisadavtyan7@gmail.com>
+License: MIT
+Project-URL: Repository, https://github.com/AlisaDavtyan/protein_classification
+Project-URL: Bug Tracker, https://github.com/AlisaDavtyan/protein_classification/issues
+Keywords: bioinformatics,amyloid,deep learning,protein,sequence classification
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: torch>=1.12.0
+Requires-Dist: transformers>=4.30.0
+Requires-Dist: xgboost>=1.7.0
+Requires-Dist: numpy>=1.20
+Requires-Dist: pandas>=1.3
+Requires-Dist: scikit-learn>=1.0
+Requires-Dist: jax-unirep>=2.0.0
+Requires-Dist: wandb>=0.14
+Requires-Dist: toml>=0.10.2
+Provides-Extra: ui
+Requires-Dist: streamlit>=1.18; extra == "ui"
+Requires-Dist: matplotlib>=3.5; extra == "ui"
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: black>=22.0; extra == "dev"
+Requires-Dist: flake8>=3.9; extra == "dev"
+Dynamic: license-file
+
+# AmyloDeep
+
+**Prediction of amyloid propensity from amino acid sequences using deep learning**
+
+AmyloDeep is a Python package that uses a 5-model ensemble to predict amyloidogenic regions in protein sequences using a rolling window approach. The package combines multiple state-of-the-art machine learning models including ESM2 transformers, UniRep embeddings, SVM, and XGBoost to provide accurate amyloid propensity predictions.
+
+## Features
+
+- **Multi-model ensemble**: Combines 5 different models for robust predictions
+- **Rolling window analysis**: Analyzes sequences using sliding windows of configurable size
+- **Pre-trained models**: Uses models trained on amyloid sequence databases
+- **Calibrated probabilities**: Includes probability calibration for better confidence estimates
+- **Easy-to-use API**: Simple Python interface and command-line tool
+- **Streamlit web interface**: Optional web interface for interactive predictions
+
+## Installation
+
+### From PyPI (recommended)
+
+```bash
+pip install amylodeep
+```
+
+### From source
+
+```bash
+git clone https://github.com/AlisaDavtyan/protein_classification.git
+cd amylodeep
+pip install -e .
+```
+
+
+
+For development:
+```bash
+pip install amylodeep[dev]
+```
+
+## Quick Start
+
+### Python API
+
+```python
+from amylodeep import predict_ensemble_rolling
+
+# Predict amyloid propensity for a protein sequence
+sequence = "MKTFFFLLLLFTIGFCYVQFSKLKLENLHFKDNSEGLKNGGLQRQLGLTLKFNSNSLHHTSNL"
+result = predict_ensemble_rolling(sequence, window_size=6)
+
+print(f"Average probability: {result['avg_probability']:.4f}")
+print(f"Maximum probability: {result['max_probability']:.4f}")
+
+# Access position-wise probabilities
+for position, probability in result['position_probs']:
+    print(f"Position {position}: {probability:.4f}")
+```
+
+### Command Line Interface
+
+```bash
+# Basic prediction
+amylodeep "MKTFFFLLLLFTIGFCYVQFSKLKLENLHFKDNSEGLKNGGLQRQLGLTLKFNSNSLHHTSNL"
+
+# With custom window size
+amylodeep "SEQUENCE" --window-size 10
+
+# Save results to file
+amylodeep "SEQUENCE" --output results.json --format json
+
+# CSV output
+amylodeep "SEQUENCE" --output results.csv --format csv
+```
+
+
+## Model Architecture
+
+AmyloDeep uses an ensemble of 5 models:
+
+1. **ESM2-150M**: Fine-tuned ESM2 transformer (150M parameters)
+2. **UniRep**: UniRep-based neural network classifier
+3. **ESM2-650M**: Custom classifier using ESM2-650M embeddings
+4. **SVM**: Support Vector Machine with ESM2 embeddings
+5. **XGBoost**: Gradient boosting with ESM2 embeddings
+
+The models are combined using probability averaging, with some models using probability calibration (Platt scaling or isotonic regression) for better confidence estimates.
+
+## Requirements
+
+- Python >= 3.8
+- PyTorch >= 1.9.0
+- Transformers >= 4.15.0
+- NumPy >= 1.20.0
+- scikit-learn >= 1.0.0
+- XGBoost >= 1.5.0
+- jax-unirep >= 2.0.0
+- wandb >= 0.12.0
+
+
+
+
+### Main Functions
+
+#### `predict_ensemble_rolling(sequence, window_size=6)`
+
+Predict amyloid propensity for a protein sequence using rolling window analysis.
+
+**Parameters:**
+- `sequence` (str): Protein sequence (amino acid letters)
+- `window_size` (int): Size of the rolling window (default: 6)
+
+**Returns:**
+Dictionary containing:
+- `position_probs`: List of (position, probability) tuples
+- `avg_probability`: Average probability across all windows
+- `max_probability`: Maximum probability across all windows
+- `sequence_length`: Length of the input sequence
+- `num_windows`: Number of windows analyzed
+
+
+Individual model classes for ESM and UniRep-based predictions.
+
+## Contributing
+
+We welcome contributions! Please see our contributing guidelines for more information.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Citation
+
+If you use AmyloDeep in your research, please cite:
+
+```bibtex
+@software{amylodeep2025,
+  title={AmyloDeep: Prediction of amyloid propensity from amino acid sequences using deep learning},
+  author={Alisa Davtyan},
+  year={2025},
+  url={https://github.com/AlisaDavtyan/protein_classification}
+}
+```
+
+## Support
+
+For questions and support:
+- Open an issue on GitHub
+- Contact: alisadavtyan7@gmail.com
+
+## Changelog
+
+### v0.1.0
+- Initial release
+- 5-model ensemble implementation
+- Rolling window prediction
+- Command-line interface
+- Python API

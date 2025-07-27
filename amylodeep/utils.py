@@ -1,8 +1,8 @@
-from unirep_model import UniRepClassifier
-from esm_classifier import ESMClassifier
+from .unirep_model import UniRepClassifier
+from .esm_classifier import ESMClassifier
 from transformers import AutoTokenizer, AutoModel, AutoModelForSequenceClassification
 import pickle
-from ensemble_predictor import EnsembleRollingWindowPredictor  
+from .ensemble_predictor import EnsembleRollingWindowPredictor  
 import xgboost as xgb
 import wandb
 import os

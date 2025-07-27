@@ -1,0 +1,2 @@
+[console_scripts]
+amylodeep-cli = amylodeep.cli:main
