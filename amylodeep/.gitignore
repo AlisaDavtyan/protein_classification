@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+.venv/
+env/
+venv/
+*.egg-info/
+
+# Secret config (W&B)
+secret.toml
+
+# PyPI build artifacts
+build/
+dist/
+*.egg-info/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Streamlit cache
+.streamlit/
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDEs/editors
+.vscode/
+.idea/
+
+# Test cache
+.pytest_cache/
+coverage/
+
+# Others
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.ckpt
