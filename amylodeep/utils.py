@@ -33,7 +33,8 @@ logging.getLogger("transformers").setLevel(logging.CRITICAL)
 logging.getLogger("huggingface_hub").setLevel(logging.CRITICAL)
 logging.getLogger("tokenizers").setLevel(logging.CRITICAL)
 
-from .model_downloaded import ensure_models_downloaded, is_downloaded, authenticate_hf
+from .model_downloaded import ensure_models_downloaded, is_downloaded
+from .utils import load_token
 from .unirep_model import UniRepClassifier
 from .esm_classifier import ESMClassifier
 from .ensemble_predictor import EnsembleRollingWindowPredictor  
