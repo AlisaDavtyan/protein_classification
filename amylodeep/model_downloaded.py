@@ -44,6 +44,7 @@ def authenticate_hf():
     except Exception as e:
         raise RuntimeError(f"❌ HuggingFace authentication failed: {e}")
 
+
 def is_downloaded() -> bool:
     """Check if models are already cached by testing a few key files"""
     try:
