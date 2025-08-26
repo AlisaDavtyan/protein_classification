@@ -5,6 +5,7 @@ import logging
 import warnings
 from huggingface_hub import snapshot_download, try_to_load_from_cache, login
 import tomli
+from .utils import load_token  # <-- Import load_token
 
 # Suppress all warnings and progress bars
 warnings.filterwarnings('ignore')
@@ -30,36 +31,18 @@ FILES = [
     "xgb"
 ]
 
-def load_token_from_secret():
-    """Load Hugging Face token from secret.toml"""
-    # Look for secret.toml in the package root
-    package_root = os.path.dirname(os.path.dirname(__file__))
-    config_path = os.path.join(package_root, "secret.toml")
-    if not os.path.exists(config_path):
-        raise RuntimeError(
-            "❌ Missing 'secret.toml' file in package directory.\n"
-            "Please create it with:\n\nHF_TOKEN = \"your_read_only_token\""
-        )
+def authenticate_hf():
+    """Authenticate with Hugging Face Hub"""
     try:
-        with open(config_path, "rb") as f:
-            config = tomli.load(f)
-        token = config.get("HF_TOKEN")
+        token = load_token()
         if not token:
             raise RuntimeError("❌ 'HF_TOKEN' not found in secret.toml")
+        login(token=token, write_permission=False)
+        os.environ["HF_TOKEN"] = token
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = token
         return token
     except Exception as e:
-        raise RuntimeError(f"❌ Error reading secret.toml: {e}")
-
-# def authenticate_hf():
-#     """Authenticate with Hugging Face Hub"""
-#     try:
-#         token = load_token_from_secret()
-#         login(token=token, write_permission=False)
-#         os.environ["HF_TOKEN"] = token
-#         os.environ["HUGGING_FACE_HUB_TOKEN"] = token
-#         return token
-#     except Exception as e:
-#         raise RuntimeError(f"❌ HuggingFace authentication failed: {e}")
+        raise RuntimeError(f"❌ HuggingFace authentication failed: {e}")
 
 def is_downloaded() -> bool:
     """Check if models are already cached by testing a few key files"""

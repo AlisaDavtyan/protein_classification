@@ -5,7 +5,7 @@ This package provides an ensemblef machine learning models to predict
 amyloidogenic regions in protein sequences using a rolling window approach.
 """
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 __author__ = "Alisa Davtyan"
 __email__ = "alisadavtyan7@gmail.com"
 
