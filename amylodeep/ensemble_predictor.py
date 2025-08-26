@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel
 import jax_unirep
 import pickle
+import os
+import tomli
 
 
 class EnsembleRollingWindowPredictor:
@@ -20,15 +22,37 @@ class EnsembleRollingWindowPredictor:
         self.calibrators = calibrators_dict or {}
         self.tokenizer_1 = tokenizer
 
+        # Load HF token for ESM2 650M model
+        self.hf_token = self._load_token_from_secret()
  
-        self.tokenizer_esm = AutoTokenizer.from_pretrained("facebook/esm2_t33_650M_UR50D")
-        self.esm_model = AutoModel.from_pretrained("facebook/esm2_t33_650M_UR50D", add_pooling_layer=False)
+        self.tokenizer_esm = AutoTokenizer.from_pretrained(
+            "facebook/esm2_t33_650M_UR50D",
+            token=self.hf_token
+        )
+        self.esm_model = AutoModel.from_pretrained(
+            "facebook/esm2_t33_650M_UR50D", 
+            add_pooling_layer=False,
+            token=self.hf_token
+        )
 
         # Freeze ESM model parameters
         for param in self.esm_model.parameters():
             param.requires_grad = False
 
         self.esm_model.eval()
+
+    def _load_token_from_secret(self):
+        """Load Hugging Face token from secret.toml"""
+        config_path = os.path.join(os.path.dirname(__file__), "secret.toml")
+        if not os.path.exists(config_path):
+            # If no token file, try without token (for public models)
+            return None
+        try:
+            with open(config_path, "rb") as f:
+                config = tomli.load(f)
+            return config.get("HF_TOKEN")
+        except:
+            return None
 
     def _predict_model_1(self, sequences):
         """ESM2 150M fine-tuned model prediction"""
@@ -44,7 +68,7 @@ class EnsembleRollingWindowPredictor:
             probs = F.softmax(outputs.logits, dim=1)[:, 1]
 
         return probs.numpy()
-
+    
     def _predict_model_2(self, sequences):
         """UniRep model prediction"""
         def unirep_tokenize_function(sequences):
@@ -64,7 +88,7 @@ class EnsembleRollingWindowPredictor:
 
         probs_np = probs.numpy()
 
-    
+        # Apply calibration if available
         if 'platt_unirep' in self.calibrators:
             probs_np = self.calibrators['platt_unirep'].predict_proba(probs_np.reshape(-1, 1))[:, 1]
 
@@ -130,7 +154,6 @@ class EnsembleRollingWindowPredictor:
 
         probs_np = probs.numpy()
 
-        
         if 'isotonic_650M_NN' in self.calibrators:
             probs_np = self.calibrators['isotonic_650M_NN'].predict(probs_np)
 
@@ -148,7 +171,6 @@ class EnsembleRollingWindowPredictor:
         X_features = self._extract_features_for_xgboost(sequences)
 
         probs = self.models['xgboost'].predict_proba(X_features)[:, 1]
-
 
         if 'isotonic_XGBoost' in self.calibrators:
             probs = self.calibrators['isotonic_XGBoost'].predict(probs)
@@ -171,7 +193,6 @@ class EnsembleRollingWindowPredictor:
     def _extract_features_for_xgboost(self, sequences):
         """Extract ESM2-650M mean-pooled embeddings for XGBoost."""
         return self._extract_features_for_svm(sequences)  # same as SVM
-
 
     def predict_ensemble(self, sequences):
         """
@@ -249,6 +270,5 @@ class EnsembleRollingWindowPredictor:
             'max_probability': max_probability,
             'sequence_length': sequence_length,
             'num_windows': len(windows)
-        }
-
-
+            }
+    

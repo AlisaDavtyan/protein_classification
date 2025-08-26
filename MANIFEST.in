@@ -1,0 +1,25 @@
+# MANIFEST.in
+# Include important files
+include README.md
+include LICENSE
+recursive-include amylodeep *.py
+
+# Exclude sensitive files and directories
+exclude secret.toml
+exclude secrets.toml
+exclude .env*
+exclude config.toml
+exclude wandb.toml
+recursive-exclude * secret.toml
+recursive-exclude * secrets.toml
+recursive-exclude * .env*
+recursive-exclude * __pycache__
+recursive-exclude * *.pyc
+recursive-exclude * *.pyo
+recursive-exclude * .DS_Store
+
+# Exclude development files
+exclude .gitignore
+exclude pytest.ini
+exclude .pre-commit-config.yaml
+recursive-exclude tests *

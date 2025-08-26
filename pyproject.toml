@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "amylodeep"
-version = "0.2.0"
+version = "0.2.1"
 description = "Prediction of amyloid propensity from amino acid sequences using ensemble deep learning and LLM models"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -57,9 +57,8 @@ amylodeep-cli = "amylodeep.cli:main"
 Repository = "https://github.com/AlisaDavtyan/protein_classification"
 "Bug Tracker" = "https://github.com/AlisaDavtyan/protein_classification/issues"
 
-[tool.setuptools]
-packages = ["amylodeep"]
-
-[tool.setuptools.package-data]
-amylodeep = ["secret.toml", "config/*"]
-
+# Use automatic package discovery but exclude sensitive files
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["amylodeep*"]
+exclude = ["tests*"]

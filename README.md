@@ -26,15 +26,9 @@ pip install amylodeep
 ```bash
 git clone https://github.com/AlisaDavtyan/protein_classification.git
 cd amylodeep
-pip install -e .
+pip install amylodeep
 ```
 
-
-
-For development:
-```bash
-pip install amylodeep[dev]
-```
 
 ## Quick Start
 

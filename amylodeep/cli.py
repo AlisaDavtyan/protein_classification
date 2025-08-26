@@ -57,10 +57,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Ensure WANDB_API_KEY is set
-    if not os.getenv("WANDB_API_KEY"):
-        print("Error: Environment variable WANDB_API_KEY must be set.", file=sys.stderr)
-        sys.exit(1)
 
     # Check input file
     if not os.path.exists(args.input):

@@ -1,88 +1,159 @@
+# utils.py
+import warnings
+import os
+import logging
+
+# Suppress all warnings and progress bars
+warnings.filterwarnings('ignore')
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Disable logging from various libraries
+logging.getLogger("transformers").setLevel(logging.CRITICAL)
+logging.getLogger("huggingface_hub").setLevel(logging.CRITICAL)
+logging.getLogger("tokenizers").setLevel(logging.CRITICAL)
+
+from .model_downloaded import ensure_models_downloaded, is_downloaded, authenticate_hf
 from .unirep_model import UniRepClassifier
 from .esm_classifier import ESMClassifier
-from transformers import AutoTokenizer, AutoModel, AutoModelForSequenceClassification
-import pickle
 from .ensemble_predictor import EnsembleRollingWindowPredictor  
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from huggingface_hub import hf_hub_download
+import pickle
 import xgboost as xgb
-import wandb
-import os
-os.environ["WANDB_MODE"] = "disabled"
+
+REPO_ID = "AlisaDavtyan/amylodeep-models"
+MODEL_ROOT = os.path.expanduser("~/.amylodeep_models")
+
+# Module-level cache to ensure models are loaded only once per session
+_models_cache = None
+_calibrators_cache = None
+_tokenizer_cache = None
+
+def get_model_file(filename, subfolder, token):
+    """Download model file from Hugging Face Hub (cached)"""
+    return hf_hub_download(
+        repo_id=REPO_ID,
+        filename=filename,
+        subfolder=subfolder,
+        token=token,
+        cache_dir=MODEL_ROOT
+    )
 
 def load_models_and_calibrators():
     """
-    Load models and calibrators
+    Load models and calibrators from Hugging Face Hub (cached for performance)
     """
-    models = {}
-
-    #initialize wandb api
-    api = wandb.Api(api_key=os.environ["WANDB_API_KEY"])
-
-    # Model 1: ESM2 150M fine-tuned
-    artifact_1 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/final_esm2_150M_checkpoint_100_epochs:v0')
-    model_path_1 = artifact_1.download()
-    models['esm2_150M'] = AutoModelForSequenceClassification.from_pretrained(model_path_1)
-    tokenizer_1 = AutoTokenizer.from_pretrained(model_path_1)
-
-    # Model 2: UniRep classifier
-    artifact_2 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/final_UniRepClassifier_4_layers_50_epochs:v0')
-    model_path_2 = artifact_2.download()
-    models['unirep'] = UniRepClassifier.from_pretrained(model_path_2)
-
-    # Model 3: ESM2 650M classifier
-    artifact_3 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/final_ESMClassifier_650_layers_50_epochs:v0')
-    model_path_3 = artifact_3.download()
-    models['esm2_650M'] = ESMClassifier.from_pretrained(model_path_3)
-
-    # Model 4: SVM model
-    artifact_4 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/svm_model:v0')
-    model_path_4 = artifact_4.download()
-    model_path_4_join = os.path.join(model_path_4, "svm_model.pkl")
-
-    with open(model_path_4_join, "rb") as f:
-        models['svm'] = pickle.load(f)
-
-    # Model 5: XGBoost model
-    artifact_5 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/XGBoost:v0')
-    model_path_5 = artifact_5.download()
-    model_path_5_join = os.path.join(model_path_5, "xgb_model.json")
-    xgb_model = xgb.XGBClassifier()
-    xgb_model.load_model(model_path_5_join)
-    models['xgboost'] = xgb_model
+    global _models_cache, _calibrators_cache, _tokenizer_cache
     
+    # Return cached models if already loaded
+    if all(cache is not None for cache in [_models_cache, _calibrators_cache, _tokenizer_cache]):
+        return _models_cache, _calibrators_cache, _tokenizer_cache
+    
+    # Ensure models are downloaded and authenticated
+    ensure_models_downloaded()
+    hf_token = authenticate_hf()
+    
+    # Suppress warnings during model loading
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        
+        models = {}
+        
+        # Load ESM2 150M model and tokenizer
+        models['esm2_150M'] = AutoModelForSequenceClassification.from_pretrained(
+            REPO_ID,
+            subfolder="esm2_150M",
+            token=hf_token,
+            cache_dir=MODEL_ROOT
+        )
+        tokenizer_1 = AutoTokenizer.from_pretrained(
+            REPO_ID,
+            subfolder="esm2_150M", 
+            token=hf_token,
+            cache_dir=MODEL_ROOT
+        )
 
-    # Calibrators
-    calibrators = {}
+        # Load UniRep model
+        models['unirep'] = UniRepClassifier.from_pretrained(
+            REPO_ID,
+            subfolder="unirep",
+            token=hf_token,
+            cache_dir=MODEL_ROOT
+        )
 
-    # platt_unirep
-    artifact_p1 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/platt_unirep:v0')
-    model_path_p1 = artifact_p1.download()
-    calibrator_path_p1 = os.path.join(model_path_p1, "platt_unirep.pkl")
-    with open(calibrator_path_p1, "rb") as f:
-        calibrators['platt_unirep'] = pickle.load(f)
+        # Load ESM2 650M model
+        models['esm2_650M'] = ESMClassifier.from_pretrained(
+            REPO_ID,
+            subfolder="esm2_650M",
+            token=hf_token,
+            cache_dir=MODEL_ROOT
+        )
 
-    # isotonic_650M_NN
-    artifact_p2 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/isotonic_650M_NN:v0')
-    model_path_p2 = artifact_p2.download()
-    calibrator_path_p2 = os.path.join(model_path_p2, "isotonic_650M_NN.pkl")
-    with open(calibrator_path_p2, "rb") as f:
-        calibrators['isotonic_650M_NN'] = pickle.load(f)
+        # Load SVM model
+        svm_model_path = get_model_file("svm_model.pkl", "svm", hf_token)
+        with open(svm_model_path, "rb") as f:
+            models['svm'] = pickle.load(f)
 
-    # isotonic_XGBoost
-    artifact_p3 = api.artifact('biophysarm-l-k-jordan-associates/amylodeep/isotonic_XGBoost:v0')
-    model_path_p3 = artifact_p3.download()
-    calibrator_path_p3 = os.path.join(model_path_p3, "isotonic_XGBoost.pkl")
-    with open(calibrator_path_p3, "rb") as f:
-        calibrators['isotonic_XGBoost'] = pickle.load(f)
+        # Load XGBoost model
+        xgb_model_path = get_model_file("xgb_model.json", "xgb", hf_token)
+        xgb_model = xgb.XGBClassifier()
+        xgb_model.load_model(xgb_model_path)
+        models['xgboost'] = xgb_model
+        
+        # Load calibrators
+        calibrators = {}
+        
+        # Platt calibrator for UniRep
+        platt_path = get_model_file("platt_unirep.pkl", "platt_unirep", hf_token)
+        with open(platt_path, "rb") as f:
+            calibrators['platt_unirep'] = pickle.load(f)
 
+        # Isotonic calibrator for ESM2 650M
+        isotonic_650_path = get_model_file("isotonic_650M_NN.pkl", "isotonic_650M_NN", hf_token)
+        with open(isotonic_650_path, "rb") as f:
+            calibrators['isotonic_650M_NN'] = pickle.load(f)
 
-    return models, calibrators,tokenizer_1
-
+        # Isotonic calibrator for XGBoost
+        isotonic_xgb_path = get_model_file("isotonic_XGBoost.pkl", "isotonic_XGBoost", hf_token)
+        with open(isotonic_xgb_path, "rb") as f:
+            calibrators['isotonic_XGBoost'] = pickle.load(f)
+    
+    # Cache the loaded models
+    _models_cache = models
+    _calibrators_cache = calibrators
+    _tokenizer_cache = tokenizer_1
+    
+    return models, calibrators, tokenizer_1
 
 def predict_ensemble_rolling(sequence: str, window_size: int = 6):
     """
     Run ensemble prediction with rolling window over a single sequence.
     Returns dictionary with average/max probs and position-wise scores.
     """
-    models, calibrators ,tokenizer_1 = load_models_and_calibrators()
-    predictor = EnsembleRollingWindowPredictor(models, calibrators,tokenizer_1)
+    models, calibrators, tokenizer_1 = load_models_and_calibrators()
+    predictor = EnsembleRollingWindowPredictor(models, calibrators, tokenizer_1)
     return predictor.rolling_window_prediction(sequence, window_size)
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python script.py SEQUENCE [WINDOW_SIZE]")
+        sys.exit(1)
+
+    sequence = sys.argv[1]
+    window_size = int(sys.argv[2]) if len(sys.argv) > 2 else 6
+
+    print(f"Running ensemble prediction on sequence of length {len(sequence)} with window size {window_size}...\n")
+
+    result = predict_ensemble_rolling(sequence, window_size)
+
+    print("Result:")
+    print(f"  - Sequence Length: {result['sequence_length']}")
+    print(f"  - Num Windows:     {result['num_windows']}")
+    print(f"  - Avg Probability: {result['avg_probability']:.4f}")
+    print(f"  - Max Probability: {result['max_probability']:.4f}")
+    print(f"  - Top Positions:   {sorted(result['position_probs'], key=lambda x: x[1], reverse=True)[:5]}")

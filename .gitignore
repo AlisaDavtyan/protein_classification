@@ -23,7 +23,7 @@ dist/
 # Streamlit cache
 .streamlit/
 *.log
-
+secret.toml
 # System files
 .DS_Store
 Thumbs.db

@@ -1,11 +1,11 @@
 """
 Amyloid: Prediction of amyloid propensity from amino acid sequences using deep learning
 
-This package provides an ensemble of machine learning models to predict
+This package provides an ensemblef machine learning models to predict
 amyloidogenic regions in protein sequences using a rolling window approach.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "Alisa Davtyan"
 __email__ = "alisadavtyan7@gmail.com"
 
@@ -18,8 +18,7 @@ from .unirep_model import UniRepClassifier, UniRepClassifierConfig
 # Import model downloading functions
 from .model_downloaded import is_downloaded, ensure_models_downloaded
 
-# Automatically download models on first import if not already cached
-# This happens silently with no progress bars
+
 try:
     if not is_downloaded():
         ensure_models_downloaded()

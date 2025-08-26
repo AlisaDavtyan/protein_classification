@@ -9,7 +9,7 @@ class ESMClassifierConfig(PretrainedConfig):
 
     def __init__(
         self,
-        input_dim=1280,  # ESM2_t30_150M has 640 dim embeddings
+        input_dim=1280,  
         hidden_dims=[2056, 1024, 512, 256, 128],
         num_labels=2,
         dropout=0.2,
@@ -41,7 +41,7 @@ class ESMClassifier(PreTrainedModel):
 
     def forward(
         self,
-        embeddings=None,  # This will be your ESM embeddings
+        embeddings=None,  
         labels=None,
         **kwargs
     ):
