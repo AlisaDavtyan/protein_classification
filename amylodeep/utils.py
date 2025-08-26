@@ -2,6 +2,25 @@
 import warnings
 import os
 import logging
+import tomli
+
+def load_token():
+    # First, try the secret.toml in the project root (for development)
+    project_root = os.path.dirname(os.path.dirname(__file__))  # one level above amylodeep/
+    secret_path = os.path.join(project_root, "secret.toml")
+
+    if os.path.exists(secret_path):
+        with open(secret_path, "rb") as f:
+            return tomli.load(f).get("HF_TOKEN")
+
+    # Optional: fallback to a hidden config directory
+    fallback_path = os.path.expanduser("~/.config/amylodeep/secret.toml")
+    if os.path.exists(fallback_path):
+        with open(fallback_path, "rb") as f:
+            return tomli.load(f).get("HF_TOKEN")
+
+    # Token not found
+    return None
 
 # Suppress all warnings and progress bars
 warnings.filterwarnings('ignore')
@@ -54,7 +73,7 @@ def load_models_and_calibrators():
     
     # Ensure models are downloaded and authenticated
     ensure_models_downloaded()
-    hf_token = authenticate_hf()
+    hf_token = load_token()
     
     # Suppress warnings during model loading
     with warnings.catch_warnings():

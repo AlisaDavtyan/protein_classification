@@ -1,25 +1,21 @@
-# MANIFEST.in
 # Include important files
 include README.md
 include LICENSE
 recursive-include amylodeep *.py
 
-# Exclude sensitive files and directories
-exclude secret.toml
-exclude secrets.toml
-exclude .env*
-exclude config.toml
-exclude wandb.toml
-recursive-exclude * secret.toml
-recursive-exclude * secrets.toml
-recursive-exclude * .env*
+# Exclude all secrets or local config files
+global-exclude secret.toml secrets.toml config.toml wandb.toml .env*
+
+# Exclude unwanted directories and build leftovers
 recursive-exclude * __pycache__
 recursive-exclude * *.pyc
 recursive-exclude * *.pyo
 recursive-exclude * .DS_Store
 
-# Exclude development files
+# Exclude dev and CI files
 exclude .gitignore
 exclude pytest.ini
 exclude .pre-commit-config.yaml
+
+# Exclude tests from package
 recursive-exclude tests *
