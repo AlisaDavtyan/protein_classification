@@ -32,7 +32,9 @@ FILES = [
 
 def load_token_from_secret():
     """Load Hugging Face token from secret.toml"""
-    config_path = os.path.join(os.path.dirname(__file__), "secret.toml")
+    # Look for secret.toml in the package root
+    package_root = os.path.dirname(os.path.dirname(__file__))
+    config_path = os.path.join(package_root, "secret.toml")
     if not os.path.exists(config_path):
         raise RuntimeError(
             "❌ Missing 'secret.toml' file in package directory.\n"
@@ -48,16 +50,16 @@ def load_token_from_secret():
     except Exception as e:
         raise RuntimeError(f"❌ Error reading secret.toml: {e}")
 
-def authenticate_hf():
-    """Authenticate with Hugging Face Hub"""
-    try:
-        token = load_token_from_secret()
-        login(token=token, write_permission=False)
-        os.environ["HF_TOKEN"] = token
-        os.environ["HUGGING_FACE_HUB_TOKEN"] = token
-        return token
-    except Exception as e:
-        raise RuntimeError(f"❌ HuggingFace authentication failed: {e}")
+# def authenticate_hf():
+#     """Authenticate with Hugging Face Hub"""
+#     try:
+#         token = load_token_from_secret()
+#         login(token=token, write_permission=False)
+#         os.environ["HF_TOKEN"] = token
+#         os.environ["HUGGING_FACE_HUB_TOKEN"] = token
+#         return token
+#     except Exception as e:
+#         raise RuntimeError(f"❌ HuggingFace authentication failed: {e}")
 
 def is_downloaded() -> bool:
     """Check if models are already cached by testing a few key files"""
