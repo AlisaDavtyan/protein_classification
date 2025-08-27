@@ -1,8 +1,8 @@
 # AmyloDeep
 
-**Prediction of amyloid propensity from amino acid sequences using deep learning**
+**AmyloDeep: pLM-based ensemble model for predicting amyloid propensity from the amino acid sequence**
 
-AmyloDeep is a Python package that uses a 5-model ensemble to predict amyloidogenic regions in protein sequences using a rolling window approach. The package combines multiple state-of-the-art machine learning models including ESM2 transformers, UniRep embeddings, SVM, and XGBoost to provide accurate amyloid propensity predictions.
+AmyloDeep is a Python package that uses  ensemble model to predict amyloidogenic regions in protein sequences using a rolling window approach. 
 
 ## Features
 
@@ -70,12 +70,6 @@ amylodeep "SEQUENCE" --output results.csv --format csv
 
 AmyloDeep uses an ensemble of 5 models:
 
-1. **ESM2-150M**: Fine-tuned ESM2 transformer (150M parameters)
-2. **UniRep**: UniRep-based neural network classifier
-3. **ESM2-650M**: Custom classifier using ESM2-650M embeddings
-4. **SVM**: Support Vector Machine with ESM2 embeddings
-5. **XGBoost**: Gradient boosting with ESM2 embeddings
-
 The models are combined using probability averaging, with some models using probability calibration (Platt scaling or isotonic regression) for better confidence estimates.
 
 ## Requirements
@@ -113,11 +107,7 @@ Dictionary containing:
 
 Individual model classes for ESM and UniRep-based predictions.
 
-## Contributing
 
-We welcome contributions! Please see our contributing guidelines for more information.
-
-## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
@@ -139,12 +129,3 @@ If you use AmyloDeep in your research, please cite:
 For questions and support:
 - Open an issue on GitHub
 - Contact: alisadavtyan7@gmail.com
-
-## Changelog
-
-### v0.1.0
-- Initial release
-- 5-model ensemble implementation
-- Rolling window prediction
-- Command-line interface
-- Python API
