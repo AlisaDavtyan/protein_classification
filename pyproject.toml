@@ -8,7 +8,7 @@ version = "0.2.8"
 description = "Prediction of amyloid propensity from amino acid sequences using ensemble deep learning and LLM models"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}.
+license = {text = "MIT"}
 
 authors = [
   {name = "Alisa Davtyan", email = "alisadavtyan7@gmail.com"}
