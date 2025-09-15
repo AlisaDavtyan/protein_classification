@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "amylodeep"
 version = "0.2.8"
-description = "Prediction of amyloid propensity from amino acid sequences using ensemble deep learning and LLM models"
+description = "AmyloDeep: pLM-based ensemble model for predicting amyloid propensity from the amino acid sequence"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
