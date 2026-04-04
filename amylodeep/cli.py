@@ -32,103 +32,111 @@ def parse_fasta(fasta_file):
     return sequences
 
 def main():
-    """
-    CLI entry point for AmyloDeeP predictions.
-    """
     parser = argparse.ArgumentParser(
-        description="Run amyloid propensity predictions on a FASTA file."
+        description="Run amyloid propensity predictions on a sequence or FASTA file."
+    )
+    parser.add_argument(
+        "sequence",
+        nargs="?",
+        default=None,
+        help="Amino acid sequence string (positional, optional)."
     )
     parser.add_argument(
         "-i", "--input",
-        required=True,
+        default=None,
         help="Path to input FASTA file containing amino acid sequences."
     )
     parser.add_argument(
         "-o", "--output",
-        required=True,
-        help="Path to output CSV file for writing predictions."
+        default=None,
+        help="Path to output file (prints to stdout if not set)."
     )
     parser.add_argument(
         "-w", "--window-size",
         type=int,
-        default=6,
-        help="Rolling window size (default: 6)"
+        default=10,
+        help="Rolling window size (default: 10)"
+    )
+    parser.add_argument(
+        "--format",
+        choices=["csv", "json"],
+        default="csv",
+        help="Output format: csv or json (default: csv)"
     )
 
     args = parser.parse_args()
 
-
-    # Check input file
-    if not os.path.exists(args.input):
-        print(f"Error: Input file '{args.input}' not found.", file=sys.stderr)
+    # Must provide either sequence string or FASTA file
+    if not args.sequence and not args.input:
+        print("Error: provide a sequence string or -i FASTA file.", file=sys.stderr)
         sys.exit(1)
 
-    # Load models, calibrators, and tokenizer
+    # Load models
     try:
-        print("Loading models and calibrators...", file=sys.stderr)
+        print("Loading models...", file=sys.stderr)
+        from .utils import load_models_and_calibrators
+        from .ensemble_predictor import EnsembleRollingWindowPredictor
         models, calibrators, tokenizer_1 = load_models_and_calibrators()
     except Exception as e:
         print(f"Error loading models: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Initialize ensemble predictor
     predictor = EnsembleRollingWindowPredictor(
         models_dict=models,
         calibrators_dict=calibrators,
         tokenizer=tokenizer_1
     )
 
-    # Parse FASTA
-    try:
-        print("Parsing FASTA file...", file=sys.stderr)
-        sequences = parse_fasta(args.input)
-        if not sequences:
-            print("Error: No sequences found in FASTA file.", file=sys.stderr)
+    # Build list of (id, sequence) tuples
+    if args.sequence:
+        sequences = [("input_sequence", args.sequence.upper())]
+    else:
+        if not os.path.exists(args.input):
+            print(f"Error: Input file '{args.input}' not found.", file=sys.stderr)
             sys.exit(1)
-        print(f"Found {len(sequences)} sequences.", file=sys.stderr)
-    except Exception as e:
-        print(f"Error parsing FASTA file: {e}", file=sys.stderr)
-        sys.exit(1)
+        try:
+            sequences = parse_fasta(args.input)
+            if not sequences:
+                print("Error: No sequences found in FASTA file.", file=sys.stderr)
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error parsing FASTA file: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Run predictions
     results = []
-    try:
-        for i, (seq_id, sequence) in enumerate(sequences, 1):
-            print(f"Processing sequence {i}/{len(sequences)}: {seq_id}", file=sys.stderr)
+    for i, (seq_id, sequence) in enumerate(sequences, 1):
+        print(f"Processing sequence {i}/{len(sequences)}: {seq_id}", file=sys.stderr)
 
-            if not sequence.replace('X', '').isalpha():
-                print(f"Warning: Sequence {seq_id} contains invalid characters. Skipping.", file=sys.stderr)
-                continue
+        if not sequence.replace('X', '').isalpha():
+            print(f"Warning: Sequence {seq_id} contains invalid characters. Skipping.", file=sys.stderr)
+            continue
 
-            result = predictor.rolling_window_prediction(sequence, args.window_size)
+        result = predictor.rolling_window_prediction(sequence, args.window_size)
 
-            for position, probability in result['position_probs']:
-                results.append({
-                    'sequence_id': seq_id,
-                    'position': position,
-                    'probability': probability,
-                    'sequence_length': result['sequence_length'],
-                    'avg_probability': result['avg_probability'],
-                    'max_probability': result['max_probability']
-                })
+        for position, probability in result['position_probs']:
+            results.append({
+                'sequence_id': seq_id,
+                'position': position,
+                'probability': round(float(probability), 4),
+                'sequence_length': result['sequence_length'],
+                'avg_probability': round(float(result['avg_probability']), 4),
+                'max_probability': round(float(result['max_probability']), 4)
+            })
 
-    except Exception as e:
-        print(f"Error during prediction: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # Write CSV
-    try:
+    # Output results
+    if args.format == "json":
+        output_str = json.dumps(results, indent=2)
+    else:
         import pandas as pd
-        df = pd.DataFrame(results)
-        df.to_csv(args.output, index=False)
-        print(f"Predictions saved to {args.output}")
-        print(f"Total predictions: {len(results)} position-wise results from {len(sequences)} sequences")
-    except ImportError:
-        print("pandas is required to write CSV outputs. Install via 'pip install pandas'", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error writing output file: {e}", file=sys.stderr)
-        sys.exit(1)
+        output_str = pd.DataFrame(results).to_csv(index=False)
+
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(output_str)
+        print(f"Results saved to {args.output}", file=sys.stderr)
+    else:
+        print(output_str)
 
 # Allow running as `python -m amylodeep.cli`
 if __name__ == "__main__":

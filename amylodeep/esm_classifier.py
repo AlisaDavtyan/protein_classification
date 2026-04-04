@@ -24,6 +24,8 @@ class ESMClassifierConfig(PretrainedConfig):
 # Define a custom model that works with the Trainer
 class ESMClassifier(PreTrainedModel):
     config_class = ESMClassifierConfig
+    _tied_weights_keys = [] 
+    all_tied_weights_keys = {}
 
     def __init__(self, config):
         super().__init__(config)
