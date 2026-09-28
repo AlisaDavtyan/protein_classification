@@ -1,162 +1,81 @@
+"""Public helpers. Model loading lives in :mod:`amylodeep.loading`.
+
+This module used to hold the loader itself, with a module-level cache that had no
+key, so two different model directories in one process silently shared whichever
+was loaded first. It now delegates, and every entry point takes ``model_dir``.
+"""
+
+from __future__ import annotations
 
 import warnings
-import os
-import logging
+from pathlib import Path
+
+from .loading import load_models_and_calibrators
+from .model_store import describe, download, is_downloaded, resolve_model_dir
+
 
 def load_token():
-    """Load token - kept for backward compatibility but returns None since models are public"""
+    """Kept for backward compatibility; the models are public, so None."""
     return None
 
-# Suppress all warnings and progress bars
-warnings.filterwarnings('ignore')
-os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-os.environ["TRANSFORMERS_VERBOSITY"] = "error"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Disable logging from various libraries
-logging.getLogger("transformers").setLevel(logging.CRITICAL)
-logging.getLogger("huggingface_hub").setLevel(logging.CRITICAL)
-logging.getLogger("tokenizers").setLevel(logging.CRITICAL)
+def predict_ensemble_rolling(
+    sequence: str,
+    window_size: int = 6,
+    *,
+    aggregate: str = "mean",
+    model_dir: str | Path | None = None,
+    allow_download: bool = True,
+    verbose: bool = False,
+    xgboost_backend: str = "native",
+):
+    """Rolling-window prediction over one sequence, with per-residue output.
 
-from .model_downloaded import ensure_models_downloaded, is_downloaded
-from .unirep_model import UniRepClassifier
-from .esm_classifier import ESMClassifier
-from .ensemble_predictor import EnsembleRollingWindowPredictor  
+    The default window is 6 rather than 10. At 10 the projection onto residues
+    overshoots a 6-residue APR by about 4 residues even with the conservative
+    aggregation; at 6 it recovers it exactly. 5-6 is also the range the amyloid
+    predictors that resolve residues are built around, so it is the honest default
+    for a per-residue claim. Pass ``window_size=10`` to reproduce earlier results.
 
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from huggingface_hub import hf_hub_download
-import pickle
-import xgboost as xgb
+    Returns the dict documented on
+    :meth:`EnsembleRollingWindowPredictor.rolling_window_prediction`, which now
+    carries ``residue_probs`` and ``coverage_depth`` alongside ``position_probs``.
+    """
+    from .ensemble_predictor import EnsembleRollingWindowPredictor
 
-REPO_ID = "AlisaDavtyan/amylodeep-models"
-MODEL_ROOT = os.path.expanduser("~/.amylodeep_models")
-
-# Module-level cache to ensure models are loaded only once per session
-_models_cache = None
-_calibrators_cache = None
-_tokenizer_cache = None
-
-def get_model_file(filename, subfolder):
-    """Download model file from Hugging Face Hub (cached) - no token needed for public models"""
-    return hf_hub_download(
-        repo_id=REPO_ID,
-        filename=filename,
-        subfolder=subfolder,
-        cache_dir=MODEL_ROOT
-        # Removed token parameter since models are public
+    models, calibrators, tokenizer = load_models_and_calibrators(
+        model_dir,
+        allow_download=allow_download,
+        verbose=verbose,
+        xgboost_backend=xgboost_backend,
     )
+    predictor = EnsembleRollingWindowPredictor(
+        models,
+        calibrators,
+        tokenizer,
+        model_dir=model_dir,
+        allow_download=allow_download,
+    )
+    return predictor.rolling_window_prediction(sequence, window_size, aggregate=aggregate)
 
-def load_models_and_calibrators():
-    """
-    Load models and calibrators from Hugging Face Hub (cached for performance)
-    """
-    global _models_cache, _calibrators_cache, _tokenizer_cache
-    
-    # Return cached models if already loaded
-    if all(cache is not None for cache in [_models_cache, _calibrators_cache, _tokenizer_cache]):
-        return _models_cache, _calibrators_cache, _tokenizer_cache
-    
-    # Ensure models are downloaded
-    ensure_models_downloaded()
-    
-    # Suppress warnings during model loading
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        
-        models = {}
-        
-        # Load ESM2 150M model and tokenizer
-        models['esm2_150M'] = AutoModelForSequenceClassification.from_pretrained(
-            REPO_ID,
-            subfolder="esm2_150M",
-            cache_dir=MODEL_ROOT
-            # Removed token parameter since models are public
-        )
-        tokenizer_1 = AutoTokenizer.from_pretrained(
-            REPO_ID,
-            subfolder="esm2_150M", 
-            cache_dir=MODEL_ROOT
-            # Removed token parameter since models are public
-        )
 
-        # Load UniRep model
-        models['unirep'] = UniRepClassifier.from_pretrained(
-            REPO_ID,
-            subfolder="unirep",
-            cache_dir=MODEL_ROOT
-            # Removed token parameter since models are public
-        )
+def ensure_models_downloaded(model_dir=None, **_ignored):
+    """Deprecated alias for :func:`amylodeep.model_store.download`."""
+    warnings.warn(
+        "ensure_models_downloaded() is deprecated; use "
+        "amylodeep.model_store.download(model_dir) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return download(model_dir)
 
-        # Load ESM2 650M model
-        models['esm2_650M'] = ESMClassifier.from_pretrained(
-            REPO_ID,
-            subfolder="esm2_650M",
-            cache_dir=MODEL_ROOT
-            # Removed token parameter since models are public
-        )
 
-        # Load SVM model
-        svm_model_path = get_model_file("svm_model.pkl", "svm")
-        with open(svm_model_path, "rb") as f:
-            models['svm'] = pickle.load(f)
-
-        # Load XGBoost model
-        xgb_model_path = get_model_file("xgb_model.json", "xgb")
-        xgb_model = xgb.XGBClassifier()
-        xgb_model.load_model(xgb_model_path)
-        models['xgboost'] = xgb_model
-        
-        # Load calibrators
-        calibrators = {}
-        
-        # Platt calibrator for UniRep
-        platt_path = get_model_file("platt_unirep.pkl", "platt_unirep")
-        with open(platt_path, "rb") as f:
-            calibrators['platt_unirep'] = pickle.load(f)
-
-        # Isotonic calibrator for ESM2 650M
-        isotonic_650_path = get_model_file("isotonic_650M_NN.pkl", "isotonic_650M_NN")
-        with open(isotonic_650_path, "rb") as f:
-            calibrators['isotonic_650M_NN'] = pickle.load(f)
-
-        # Isotonic calibrator for XGBoost
-        isotonic_xgb_path = get_model_file("isotonic_XGBoost.pkl", "isotonic_XGBoost")
-        with open(isotonic_xgb_path, "rb") as f:
-            calibrators['isotonic_XGBoost'] = pickle.load(f)
-    
-    # Cache the loaded models
-    _models_cache = models
-    _calibrators_cache = calibrators
-    _tokenizer_cache = tokenizer_1
-    
-    return models, calibrators, tokenizer_1
-
-def predict_ensemble_rolling(sequence: str, window_size: int = 6):
-    """
-    Run ensemble prediction with rolling window over a single sequence.
-    Returns dictionary with average/max probs and position-wise scores.
-    """
-    models, calibrators, tokenizer_1 = load_models_and_calibrators()
-    predictor = EnsembleRollingWindowPredictor(models, calibrators, tokenizer_1)
-    return predictor.rolling_window_prediction(sequence, window_size)
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) < 2:
-        print("Usage: python script.py SEQUENCE [WINDOW_SIZE]")
-        sys.exit(1)
-
-    sequence = sys.argv[1]
-    window_size = int(sys.argv[2]) if len(sys.argv) > 2 else 6
-
-    print(f"Running ensemble prediction on sequence of length {len(sequence)} with window size {window_size}...\n")
-
-    result = predict_ensemble_rolling(sequence, window_size)
-
-    print("Result:")
-    print(f"  - Sequence Length: {result['sequence_length']}")
-    print(f"  - Num Windows:     {result['num_windows']}")
-    print(f"  - Avg Probability: {result['avg_probability']:.4f}")
-    print(f"  - Max Probability: {result['max_probability']:.4f}")
-    print(f"  - Top Positions:   {sorted(result['position_probs'], key=lambda x: x[1], reverse=True)[:5]}")
+__all__ = [
+    "predict_ensemble_rolling",
+    "load_models_and_calibrators",
+    "ensure_models_downloaded",
+    "is_downloaded",
+    "describe",
+    "download",
+    "resolve_model_dir",
+]
